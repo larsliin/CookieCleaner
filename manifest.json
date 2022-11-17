@@ -1,0 +1,11 @@
+{
+    "name": "Cookie Cleaner",
+    "version": "1.0.0",
+    "description": "Removes unwanted cookies",
+    "manifest_version": 3,
+    "author": "Lars Liin",
+    "action":{
+        "default_popup": "index.html",
+        "default_title": "Cookie Cleaner"
+    }
+}
