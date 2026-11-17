@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
+import CleanerPanel from './components/cleaner/CleanerPanel.vue'
+import { useTheme } from './composables/useTheme'
+
+useTheme()
 </script>
 
 <template>
-  <HelloWorld />
+  <CleanerPanel />
 </template>

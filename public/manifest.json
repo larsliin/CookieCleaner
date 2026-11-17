@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Cookie Cleaner",
-  "version": "0.0.0",
-  "description": "Remove cookies, local storage, and session storage for the current domain.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "119",
+  "incognito": "not_allowed",
+  "description": "Clear cookies and website storage for a recent site or all sites, with time-range controls.",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "action": {
     "default_popup": "index.html",
     "default_title": "Cookie Cleaner",
@@ -17,5 +23,6 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": ["cookies", "scripting", "activeTab"]
+  "permissions": ["browsingData", "scripting", "tabs", "storage", "webNavigation"],
+  "host_permissions": ["http://*/*", "https://*/*"]
 }

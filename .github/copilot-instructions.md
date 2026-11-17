@@ -1,16 +1,18 @@
 # Cookie Cleaner Chrome Extension
 
-A lightweight Chrome extension that removes cookies, local storage, and session storage from the current domain.
+A lightweight Chrome extension that removes cookies, local storage, and reachable session storage for a selected site or all websites.
 
 ## Purpose and scope
 
-Build a lightweight Chrome extension that:
-1. Identifies the current domain from the active tab
-2. Removes cookies for the agreed current-domain scope
-3. Clears local storage (`localStorage`) and session storage (`sessionStorage`) for the agreed target
-4. Provides clear feedback about success, failure, or partial completion
+The implemented scope is:
+1. Select the current site, one of the last 10 distinct sites tracked locally since installation, or all websites.
+2. Group sites by registrable domain (including private suffixes), including subdomains for cookie cleanup.
+3. Offer all time, last hour, 24 hours, and 7 days using Chrome's browsing-data time filter.
+4. Clear local storage only at known origins for site-specific cleanup; clearly report unknown-subdomain limitations.
+5. Clear whole session stores in matching loaded HTTP(S) frames, without pretending to age-filter entries or reach unloaded/closed-tab state.
+6. Require review and confirmation, report individual errors/limitations, and never automatically reload tabs.
 
-More detailed requirements will follow. Do not invent cleanup triggers, popup dimensions, confirmation flows, automatic reloads, or domain-matching rules. Clarify material ambiguity before implementing behavior.
+See README.md for the exact browser limitations and permission rationale. Clarify changes to destructive behavior before implementing them.
 
 Keep the interface simple and focused. Do not add config editing, downloads, clipboard features, browsing-history deletion, cache clearing, IndexedDB cleanup, scheduling, or web services unless explicitly requested.
 
@@ -20,7 +22,7 @@ Keep the interface simple and focused. Do not add config editing, downloads, cli
 - **Language**: TypeScript for application and browser integration code
 - **Build tool**: Vite
 - **Current structure**: `src/App.vue`, `src/main.ts`, `src/components/`, `src/style.css`, and `public/`
-- The repository is currently a Vite starter, not a working extension. Do not describe planned files or features as already implemented.
+- The repository contains a working Manifest V3 popup and background worker. Keep background jobs independent of popup lifetime.
 - Target Chrome Manifest V3 when adding a manifest. Add a popup, service worker, or content script only as required by the agreed behavior.
 - Keep Vue component files under 500 lines; split into smaller focused components if needed
 - Use the existing Vite setup and npm scripts; add dependencies only when necessary
@@ -29,7 +31,7 @@ Keep the interface simple and focused. Do not add config editing, downloads, cli
 
 - Always use suitable shared UI components from the [Chrome Extension Component Library](https://github.com/larsliin/ChromeExtensionComponentLibrary/blob/main/docs/components/index.md) whenever possible instead of creating duplicate UI components. Check the library documentation before implementing UI components.
 - If no suitable shared component exists and a reusable component would make sense, suggest creating it in the shared library and ask the user for approval before implementing a local alternative or changing the library.
-- The library is not currently installed. Do not claim it is available or add it without a concrete UI requirement.
+- The library is installed. Import its stylesheet once and use its semantic color tokens in both themes.
 
 ## Workspace references and boundaries
 
@@ -39,7 +41,7 @@ Keep the interface simple and focused. Do not add config editing, downloads, cli
 ## Cleaning scope and safety
 
 - Resolve the active tab's URL and validate that it is a supported target before cleaning.
-- Keep cleanup limited to the agreed current-domain scope. Do not silently include parent domains, subdomains, unrelated origins, other tabs, or all browsing data.
+- Keep cleanup limited to the confirmed site/all-sites scope. Site cookies include subdomains; local storage uses known origins; session cleanup reaches matching frames across open HTTP(S) tabs. Do not silently broaden beyond those rules.
 - Cookies are domain/path scoped, local storage is origin scoped, and session storage is also tied to a tab's browsing context. Do not treat these as interchangeable scopes; clarify the intended mapping before implementing it.
 - Clearing extension `chrome.storage.local` does not clear a website's local storage.
 - Handle restricted pages, unavailable permissions, and API errors explicitly.
@@ -53,7 +55,7 @@ Keep the interface simple and focused. Do not add config editing, downloads, cli
 - Provide clear pending, success, failure, and partial-completion feedback.
 - Prevent duplicate cleanup actions while an operation is pending.
 - Handle unsupported pages or unavailable targets without offering a misleading successful action.
-- Popup layout, dimensions, and detailed interaction flow remain to be defined.
+- Preserve the compact popup's scope selection, review/confirmation flow, and saved background results.
 
 ## Browser API usage
 
@@ -68,7 +70,8 @@ Keep the interface simple and focused. Do not add config editing, downloads, cli
 - Current scripts: `npm run dev`, `npm run build`, `npm run build:icons`, `npm run build:extension`, and `npm run preview`.
 - `npm run build` runs Vue/TypeScript checks and outputs a web build to `dist/`.
 - `npm run build:extension` type-checks, generates PNG icons from `public/favicon.svg`, and bundles a Manifest V3 extension to `dist-extension/` (manifest from `public/manifest.json`, icons, and the Vue app as the popup).
-- The manifest currently declares the `cookies`, `scripting`, and `activeTab` permissions for the documented cleaning scope; refine these when the cleaning behavior is implemented.
+- The manifest declares `browsingData`, `scripting`, `tabs`, `storage`, `webNavigation`, and HTTP(S) host access for the agreed scope. Incognito is disabled; do not imply profile-wide APIs clear incognito data.
+- `npm test` covers scope rules and partial failures. `npm run test:browser` verifies the built extension with local fixtures in a disposable browser profile; never run destructive tests against a user's normal profile.
 - For code changes, run `npm run build` and focused existing tests relevant to the change. Documentation-only changes do not require a build.
 - Once extension packaging exists, load its actual output in Chrome through `chrome://extensions/` using Developer Mode and "Load unpacked" (select `dist-extension/`).
 - Verify all three storage types, target isolation, unsupported pages, and failure/partial-completion feedback. A build alone does not verify browser cleanup.
