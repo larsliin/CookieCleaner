@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "minimum_chrome_version": "119",
   "incognito": "not_allowed",
-  "description": "Clear cookies and website storage for a recent site or all sites, with time-range controls.",
+  "description": "Clear cookies and website storage for the current site, a recent site, or all sites, including optional third-party cookies.",
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -23,6 +23,6 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": ["browsingData", "scripting", "tabs", "storage", "webNavigation"],
+  "permissions": ["browsingData", "cookies", "history", "scripting", "tabs", "storage", "webNavigation"],
   "host_permissions": ["http://*/*", "https://*/*"]
 }

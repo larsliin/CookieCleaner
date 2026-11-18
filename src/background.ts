@@ -1,4 +1,5 @@
 import { clean } from './cleaner/cleanup.ts'
+import { cleanBatch } from './cleaner/batch.ts'
 import {
   errorMessage, isCleanupRequest, jobKey, recentSitesKey, rememberSite,
   type CleanupJob, type CleanupRequest, type Reply, type Site,
@@ -47,10 +48,18 @@ async function runCleanup(request: CleanupRequest): Promise<CleanupJob> {
     await chrome.storage.session.set({ [jobKey]: job })
     await visitQueue
     const stored = await chrome.storage.local.get(recentSitesKey)
-    job = await clean(request, (stored[recentSitesKey] ?? []) as Site[], startedAt, async (steps) => {
-      job = { ...job, steps }
-      await chrome.storage.session.set({ [jobKey]: job })
-    })
+    const sites = (stored[recentSitesKey] ?? []) as Site[]
+    if (request.targets) {
+      job = await cleanBatch(request, sites, startedAt, async (updated) => {
+        job = updated
+        await chrome.storage.session.set({ [jobKey]: job })
+      })
+    } else {
+      job = await clean(request, sites, startedAt, async (steps) => {
+        job = { ...job, steps }
+        await chrome.storage.session.set({ [jobKey]: job })
+      })
+    }
     await chrome.storage.session.set({ [jobKey]: job })
     return job
   } catch (error) {

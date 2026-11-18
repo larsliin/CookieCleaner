@@ -11,6 +11,8 @@ The implemented scope is:
 4. Clear local storage only at known origins for site-specific cleanup; clearly report unknown-subdomain limitations.
 5. Clear whole session stores in matching loaded HTTP(S) frames, without pretending to age-filter entries or reach unloaded/closed-tab state.
 6. Require review and confirmation, report individual errors/limitations, and never automatically reload tabs.
+7. See all opens a paginated domain-management tab combining retained browsing history, cookies, open tabs, and recent records. History access is approved for listing only, never deletion.
+8. Selected-site batches always use all time and the shared third-party preference; the tab's global action clears all websites for all time independently of selection.
 
 See README.md for the exact browser limitations and permission rationale. Clarify changes to destructive behavior before implementing them.
 
@@ -47,6 +49,7 @@ Keep the interface simple and focused. Do not add config editing, downloads, cli
 - Handle restricted pages, unavailable permissions, and API errors explicitly.
 - Report partial completion accurately if one storage type cannot be cleared.
 - Keep cookies and site storage local. Do not log sensitive values or transmit them to external services.
+- Catalogue history/cookie metadata stays in tab memory, not a second persistent history archive. No cookies means no enumerated cookies, not no site storage; show unavailable counts and partial-inventory warnings explicitly.
 
 ## Popup UI and interaction
 
@@ -70,7 +73,7 @@ Keep the interface simple and focused. Do not add config editing, downloads, cli
 - Current scripts: `npm run dev`, `npm run build`, `npm run build:icons`, `npm run build:extension`, and `npm run preview`.
 - `npm run build` runs Vue/TypeScript checks and outputs a web build to `dist/`.
 - `npm run build:extension` type-checks, generates PNG icons from `public/favicon.svg`, and bundles a Manifest V3 extension to `dist-extension/` (manifest from `public/manifest.json`, icons, and the Vue app as the popup).
-- The manifest declares `browsingData`, `scripting`, `tabs`, `storage`, `webNavigation`, and HTTP(S) host access for the agreed scope. Incognito is disabled; do not imply profile-wide APIs clear incognito data.
+- The manifest declares `browsingData`, `cookies`, `history`, `scripting`, `tabs`, `storage`, `webNavigation`, and HTTP(S) host access for the agreed scope. History is read only for the all-sites catalogue. Incognito is disabled; do not imply profile-wide APIs clear incognito data.
 - `npm test` covers scope rules and partial failures. `npm run test:browser` verifies the built extension with local fixtures in a disposable browser profile; never run destructive tests against a user's normal profile.
 - For code changes, run `npm run build` and focused existing tests relevant to the change. Documentation-only changes do not require a build.
 - Once extension packaging exists, load its actual output in Chrome through `chrome://extensions/` using Developer Mode and "Load unpacked" (select `dist-extension/`).

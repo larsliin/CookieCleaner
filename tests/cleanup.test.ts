@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { clean } from '../src/cleaner/cleanup.ts'
-import { isCleanupRequest, matchesSite, rememberSite, since, website } from '../src/cleaner/model.ts'
+import { isCleanupRequest, matchesSite, rememberSite, since, thirdPartyDomains, website } from '../src/cleaner/model.ts'
 
 test('site boundaries respect public suffixes, private tenants, and unsupported pages', () => {
   assert.equal(website('https://shop.example.co.uk/products')?.domain, 'example.co.uk')
@@ -11,10 +11,23 @@ test('site boundaries respect public suffixes, private tenants, and unsupported 
   assert.equal(matchesSite('https://example.com.evil.test', 'example.com'), false)
   assert.equal(matchesSite('chrome://settings', null), false)
   assert.equal(website('not a url'), null)
-  assert.equal(isCleanupRequest({ domain: 'co.uk', period: 'all' }), false)
-  assert.equal(isCleanupRequest({ domain: 'example.com/path', period: 'all' }), false)
-  assert.equal(isCleanupRequest({ domain: '', period: 'all' }), false)
-  assert.equal(isCleanupRequest({ domain: null, period: 'forever' }), false)
+  assert.equal(isCleanupRequest({ domain: 'co.uk', period: 'all', thirdParty: false }), false)
+  assert.equal(isCleanupRequest({ domain: 'example.com/path', period: 'all', thirdParty: false }), false)
+  assert.equal(isCleanupRequest({ domain: '', period: 'all', thirdParty: false }), false)
+  assert.equal(isCleanupRequest({ domain: null, period: 'forever', thirdParty: false }), false)
+  assert.equal(isCleanupRequest({ domain: 'example.com', period: 'all' }), false)
+  assert.equal(isCleanupRequest({ domain: 'example.com', period: 'all', thirdParty: true }), true)
+})
+
+test('third-party domains exclude the site itself, its subdomains, and non-web URLs', () => {
+  assert.deepEqual(thirdPartyDomains([
+    'https://shop.example.com/page',
+    'https://cdn.example.com/app.js',
+    'https://pixel.tracker.net/p.gif',
+    'https://ads.tracker.net/ad.js',
+    'https://cdn.partner.co.uk/x',
+    'data:image/png;base64,AAAA',
+  ], 'example.com'), ['partner.co.uk', 'tracker.net'])
 })
 
 test('recent sites deduplicate, move to front, remember origins, and retain exactly ten', () => {
@@ -62,7 +75,7 @@ test('cleanup constrains origins, targets matching frames, and reports partial f
       },
     },
   })
-  const result = await clean({ domain: 'example.com', period: 'hour' }, [], 4_000_000, async () => {})
+  const result = await clean({ domain: 'example.com', period: 'hour', thirdParty: false }, [], 4_000_000, async () => {})
   assert.deepEqual(calls, [{
     since: 400_000,
     originTypes: { unprotectedWeb: true, protectedWeb: true, extension: false },
@@ -87,8 +100,9 @@ test('all-sites cleanup omits origin filtering and never claims failed injection
       scripting: { executeScript: async () => [] },
     },
   })
-  const result = await clean({ domain: null, period: 'all' }, [], 100, async () => {})
+  const result = await clean({ domain: null, period: 'all', thirdParty: true }, [], 100, async () => {})
   assert.equal(optionsSeen.length, 2)
+  assert.equal(result.steps.some((step) => step.name === 'Third-party cookies'), false)
   assert.equal(Object.hasOwn(optionsSeen[0]!, 'origins'), false)
   assert.equal(result.steps[2]?.status, 'failed')
   assert.match(result.steps[2]!.detail, /did not confirm/)
@@ -104,7 +118,50 @@ test('frame discovery failure is explicit while independent cookie and local cle
       },
     },
   })
-  const result = await clean({ domain: null, period: 'day' }, [], Date.now(), async () => {})
+  const result = await clean({ domain: null, period: 'day', thirdParty: false }, [], Date.now(), async () => {})
   assert.deepEqual(result.steps.map((step) => step.status), ['done', 'done', 'failed'])
   assert.match(result.steps[2]!.detail, /Tabs unavailable/)
+})
+
+test('third-party cleanup removes discovered tracker cookies and cookies partitioned under the site', async () => {
+  const cookieCalls: unknown[] = []
+  const removed: unknown[] = []
+  Object.assign(globalThis, {
+    chrome: {
+      tabs: { query: async () => [{ id: 1, url: 'https://shop.example.com' }, { id: 2, url: 'https://other.test' }] },
+      webNavigation: { getAllFrames: async () => [{ frameId: 0, url: 'https://shop.example.com' }] },
+      browsingData: {
+        removeCookies: async (options: unknown) => { cookieCalls.push(options) },
+        removeLocalStorage: async () => {},
+      },
+      scripting: {
+        executeScript: async (options: { target: { tabId: number; allFrames?: boolean } }) => {
+          if (!options.target.allFrames) return [{ result: true }]
+          assert.equal(options.target.tabId, 1)
+          return [
+            { result: ['https://shop.example.com/', 'https://pixel.tracker.net/p.gif'] },
+            { result: ['https://ads.vendor.test/frame', 'https://cdn.example.com/a.js'] },
+          ]
+        },
+      },
+      cookies: {
+        getAll: async () => [
+          { name: 'p', domain: '.tracker.net', path: '/', secure: true, storeId: '0', partitionKey: { topLevelSite: 'https://example.com' } },
+          { name: 'u', domain: 'unpartitioned.test', path: '/', secure: false, storeId: '0' },
+        ],
+        remove: async (details: unknown) => { removed.push(details) },
+      },
+    },
+  })
+  const result = await clean({ domain: 'example.com', period: 'all', thirdParty: true }, [], 100, async () => {})
+  assert.deepEqual((cookieCalls[1] as { origins: string[] }).origins, [
+    'https://tracker.net', 'http://tracker.net', 'https://vendor.test', 'http://vendor.test',
+  ])
+  assert.deepEqual(removed, [{
+    url: 'https://tracker.net/', name: 'p', storeId: '0', partitionKey: { topLevelSite: 'https://example.com' },
+  }])
+  const step = result.steps.find((item) => item.name === 'Third-party cookies')
+  assert.equal(step?.status, 'limited')
+  assert.match(step!.detail, /2 other website\(s\).*tracker\.net, vendor\.test/)
+  assert.match(step!.detail, /1 partitioned cookie/)
 })

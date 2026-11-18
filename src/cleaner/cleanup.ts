@@ -1,6 +1,6 @@
 import {
-  errorMessage, matchesSite, since, website,
-  type CleanupJob, type CleanupRequest, type CleanupStep, type Site,
+  errorMessage, matchesSite, since, thirdPartyDomains, website,
+  type CleanupJob, type CleanupRequest, type CleanupStep, type Period, type Site,
 } from './model.ts'
 
 interface FrameTarget {
@@ -31,6 +31,83 @@ async function findFrames(domain: string | null): Promise<{
     }
   }))
   return { frames, failures }
+}
+
+async function findThirdPartyDomains(domain: string): Promise<{
+  domains: string[]
+  failures: string[]
+}> {
+  const tabs = await chrome.tabs.query({})
+  const urls: string[] = []
+  const failures: string[] = []
+  await Promise.all(tabs.map(async (tab) => {
+    if (tab.id === undefined || !matchesSite(tab.url ?? '', domain)) return
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id, allFrames: true },
+        func: () => [
+          location.href,
+          ...performance.getEntriesByType('resource').map((entry) => entry.name),
+        ],
+      })
+      for (const result of results) urls.push(...(result.result as string[] | undefined ?? []))
+    } catch (error) {
+      failures.push(`Tab ${tab.id}: ${errorMessage(error)}`)
+    }
+  }))
+  return { domains: thirdPartyDomains(urls, domain), failures }
+}
+
+async function removePartitionedCookies(domain: string): Promise<number> {
+  const topLevelSite = `https://${domain}`
+  const cookies = await chrome.cookies.getAll({ partitionKey: { topLevelSite } })
+  const partitioned = cookies.filter((cookie) => cookie.partitionKey?.topLevelSite === topLevelSite)
+  await Promise.all(partitioned.map((cookie) => chrome.cookies.remove({
+    url: `${cookie.secure ? 'https' : 'http'}://${cookie.domain.replace(/^\./, '')}${cookie.path}`,
+    name: cookie.name,
+    storeId: cookie.storeId,
+    partitionKey: cookie.partitionKey,
+  })))
+  return partitioned.length
+}
+
+async function removeThirdPartyCookies(domain: string, period: Period, startedAt: number): Promise<CleanupStep> {
+  const failures: string[] = []
+  let domains: string[] = []
+  let partitioned = 0
+  try {
+    const found = await findThirdPartyDomains(domain)
+    domains = found.domains
+    failures.push(...found.failures)
+    if (domains.length > 0) {
+      await chrome.browsingData.removeCookies({
+        since: since(period, startedAt),
+        originTypes: { unprotectedWeb: true, protectedWeb: true, extension: false },
+        origins: domains.flatMap((item) => [`https://${item}`, `http://${item}`]) as [string, ...string[]],
+      })
+    }
+  } catch (error) {
+    failures.push(errorMessage(error))
+  }
+  // Chrome does not expose cookie creation times, so partitioned cookies can only be removed for all time.
+  if (period === 'all') {
+    try {
+      partitioned = await removePartitionedCookies(domain)
+    } catch (error) {
+      failures.push(`Partitioned cookies: ${errorMessage(error)}`)
+    }
+  }
+  const seen = domains.length > 0
+    ? `Removed cookies from ${domains.length} other website(s) used by this site's open tabs: ${domains.join(', ')}. Removing these cookies also affects other websites that use them.`
+    : 'No other websites were found in this site\'s open tabs. If the site is closed, open it, let it finish loading, and try again.'
+  const partition = period === 'all'
+    ? ` Removed ${partitioned} partitioned cookie(s) stored under this site.`
+    : ' Partitioned cookies are only removed for "All time".'
+  return {
+    name: 'Third-party cookies',
+    status: failures.length > 0 ? 'failed' : 'limited',
+    detail: `${seen}${partition} Cookies from other companies that were not found on an open page may remain.${failures.length ? ` ${failures.join(' ')}` : ''}`,
+  }
 }
 
 export async function clean(
@@ -86,6 +163,10 @@ export async function clean(
     } catch (error) {
       steps.push({ name, status: 'failed', detail: errorMessage(error) })
     }
+    await publish([...steps])
+  }
+  if (request.domain !== null && request.thirdParty) {
+    steps.push(await removeThirdPartyCookies(request.domain, request.period, startedAt))
     await publish([...steps])
   }
   const failures = [...discoveryFailures]

@@ -1,14 +1,14 @@
-import { computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 import {
-  errorMessage, jobKey, recentSitesKey, website,
+  errorMessage, jobKey, recentSitesKey, thirdPartyKey, website,
   type CleanupJob, type CleanupRequest, type Period, type Reply, type Site,
 } from '../cleaner/model'
 
 export function useCleaner() {
   const sites = shallowRef<Site[]>([])
   const currentDomain = shallowRef<string | null>(null)
-  const target = shallowRef('')
   const period = shallowRef<Period>('all')
+  const thirdParty = shallowRef(false)
   const job = shallowRef<CleanupJob | null>(null)
   const error = shallowRef('')
   const loading = shallowRef(true)
@@ -16,37 +16,41 @@ export function useCleaner() {
   const available = shallowRef(false)
   const review = shallowRef<CleanupRequest | null>(null)
   const busy = computed(() => submitting.value || job.value?.status === 'running')
-  const request = computed<CleanupRequest>(() => ({
-    domain: target.value === '__all__' ? null : target.value,
-    period: period.value,
-  }))
+  let jobRevision = 0
 
   function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>, area: string) {
     if (area === 'session' && changes[jobKey]) {
+      jobRevision++
       job.value = (changes[jobKey].newValue ?? null) as CleanupJob | null
     }
     if (area === 'local' && changes[recentSitesKey]) {
       sites.value = (changes[recentSitesKey].newValue ?? []) as Site[]
+    }
+    if (area === 'local' && changes[thirdPartyKey]) {
+      thirdParty.value = changes[thirdPartyKey].newValue === true
     }
   }
 
   async function load() {
     error.value = ''
     loading.value = true
+    const revision = jobRevision
     try {
       if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
         throw new Error('Browser preview only. Load the built extension in Chrome to enable cleanup.')
       }
       const [stored, tabs, reply] = await Promise.all([
-        chrome.storage.local.get(recentSitesKey),
+        chrome.storage.local.get([recentSitesKey, thirdPartyKey]),
         chrome.tabs.query({ active: true, currentWindow: true }),
         chrome.runtime.sendMessage<unknown, Reply<CleanupJob | null>>({ type: 'status' }),
       ])
       if (!reply.ok) throw new Error(reply.error)
       sites.value = (stored[recentSitesKey] ?? []) as Site[]
+      thirdParty.value = stored[thirdPartyKey] === true
       currentDomain.value = website(tabs[0]?.url ?? '')?.domain ?? null
-      job.value = reply.value
-      target.value = currentDomain.value ?? sites.value[0]?.domain ?? ''
+      if (jobRevision === revision) {
+        job.value = reply.value?.status === 'running' ? reply.value : null
+      }
       available.value = true
     } catch (cause) {
       available.value = false
@@ -56,15 +60,32 @@ export function useCleaner() {
     }
   }
 
-  function beginReview(scope: CleanupRequest = request.value) {
-    if (!available.value || scope.domain === '' || busy.value || review.value) return
+  watch(thirdParty, (value) => {
+    if (available.value) {
+      void chrome.storage.local.set({ [thirdPartyKey]: value }).catch((cause: unknown) => {
+        error.value = `Could not save third-party preference: ${errorMessage(cause)}`
+      })
+    }
+  })
+
+  function prepareCleanup(request: CleanupRequest) {
+    if (!available.value || busy.value || review.value) return
     error.value = ''
-    review.value = { ...scope }
+    review.value = request
+  }
+
+  function beginReview(domain: string | null) {
+    prepareCleanup({
+      domain,
+      period: domain === null ? period.value : 'all',
+      thirdParty: domain !== null && thirdParty.value,
+    })
   }
 
   async function confirm() {
     if (!review.value || busy.value) return
     const confirmed = review.value
+    review.value = null
     submitting.value = true
     error.value = ''
     try {
@@ -73,13 +94,17 @@ export function useCleaner() {
       })
       if (!reply.ok) throw new Error(reply.error)
       job.value = reply.value
-      review.value = null
     } catch (cause) {
       error.value = `Cleanup could not be confirmed: ${errorMessage(cause)}. Check the saved result before retrying.`
-      review.value = null
     } finally {
       submitting.value = false
     }
+  }
+
+  async function dismissResult() {
+    if (job.value?.status !== 'complete') return
+    await chrome.storage.session.remove(jobKey)
+    job.value = null
   }
 
   onMounted(() => {
@@ -95,7 +120,7 @@ export function useCleaner() {
   })
 
   return {
-    sites, currentDomain, target, period, job, error, loading, available,
-    review, busy, load, beginReview, confirm,
+    sites, currentDomain, period, thirdParty, job, error, loading, available,
+    review, busy, load, beginReview, prepareCleanup, confirm, dismissResult,
   }
 }

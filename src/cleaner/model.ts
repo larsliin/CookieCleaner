@@ -2,6 +2,8 @@ import { parse } from 'tldts'
 
 export const recentSitesKey = 'recentSites'
 export const jobKey = 'cleanupJob'
+export const thirdPartyKey = 'removeThirdPartyCookies'
+export const thirdPartyGuidance = 'Open the website you want to clean in a tab and let it finish loading. Keep that tab open while cleaning so Cookie Cleaner can find cookies from other companies used on that page, such as advertising companies. Cookies from companies that are not found may remain. Removing a company\'s cookies can also affect other websites, including signing you out.'
 
 export const periods = [
   { value: 'all', label: 'All time' },
@@ -19,6 +21,13 @@ export interface Site {
 export interface CleanupRequest {
   domain: string | null
   period: Period
+  /** Also remove cookies of third parties embedded by the site. Ignored for all websites. */
+  thirdParty: boolean
+  targets?: CleanupTarget[]
+}
+export interface CleanupTarget {
+  domain: string
+  origins: string[]
 }
 export interface CleanupStep {
   name: string
@@ -30,6 +39,7 @@ export interface CleanupJob {
   startedAt: number
   status: 'running' | 'complete'
   steps: CleanupStep[]
+  completedSites?: number
 }
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string }
 
@@ -68,6 +78,19 @@ export function rememberSite(sites: Site[], url: string, now: number): Site[] {
   ].slice(0, 10)
 }
 
+export function thirdPartyDomains(urls: Iterable<string>, domain: string): string[] {
+  const domains = new Set<string>()
+  for (const url of urls) {
+    const site = website(url)
+    if (site && site.domain !== domain) domains.add(site.domain)
+  }
+  return [...domains].sort()
+}
+
+export function periodLabel(period: Period): string {
+  return periods.find((item) => item.value === period)?.label ?? period
+}
+
 export function since(period: Period, now: number): number {
   const durations = { all: 0, hour: 3_600_000, day: 86_400_000, week: 604_800_000 }
   return period === 'all' ? 0 : now - durations[period]
@@ -82,7 +105,30 @@ export function isCleanupRequest(value: unknown): value is CleanupRequest {
     && website(`https://${request.domain}`)?.domain === request.domain
     && new URL(`https://${request.domain}`).hostname === request.domain
   )
-  return validDomain && periods.some((period) => period.value === request.period)
+  const validTargets = request.targets === undefined || (
+    request.domain === null && request.period === 'all'
+    && Array.isArray(request.targets) && request.targets.length > 0
+    && request.targets.every((target: unknown) => {
+      if (typeof target !== 'object' || target === null) return false
+      const item = target as Record<string, unknown>
+      const domain = item.domain
+      return typeof domain === 'string'
+        && website(`https://${domain}`)?.domain === domain
+        && Array.isArray(item.origins)
+        && item.origins.every((origin: unknown) => (
+          typeof origin === 'string'
+          && website(origin)?.origin === origin
+          && matchesSite(origin, domain)
+        ))
+    })
+  )
+  return validDomain && validTargets
+    && typeof request.thirdParty === 'boolean'
+    && periods.some((period) => period.value === request.period)
+}
+
+export function cleanupScope(request: CleanupRequest): string {
+  return request.targets ? `${request.targets.length} selected sites` : request.domain ?? 'All websites'
 }
 
 export function errorMessage(error: unknown): string {
