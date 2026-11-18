@@ -20,9 +20,6 @@ test('catalogue merges sources, preserves cookie-free history and real dates, an
         { domain: '.cookie-only.test', secure: true },
       ] },
       tabs: { query: async () => [{ url: 'http://open.test:8080/path' }] },
-      storage: { local: { get: async () => ({
-        recentSites: [{ domain: 'example.co.uk', origins: ['http://shop.example.co.uk:9000'], visitedAt: 75 }],
-      }) } },
     },
   })
   const result = await loadCatalogue()
@@ -31,7 +28,7 @@ test('catalogue merges sources, preserves cookie-free history and real dates, an
   const site = result.sites.find((site) => site.domain === 'example.co.uk')!
   assert.equal(site.visitedAt, 100)
   assert.equal(site.cookieCount, 2)
-  assert.ok(site.origins.includes('http://shop.example.co.uk:9000'))
+  assert.ok(site.origins.includes('https://shop.example.co.uk'))
   assert.equal(result.sites.find((site) => site.domain === 'alice.github.io')?.cookieCount, 0)
   assert.equal(result.sites.find((site) => site.domain === 'cookie-only.test')?.visitedAt, null)
   assert.deepEqual(sortSites(result.sites, 'date').map((site) => site.domain), [

@@ -1,6 +1,5 @@
 import { parse } from 'tldts'
 
-export const recentSitesKey = 'recentSites'
 export const jobKey = 'cleanupJob'
 export const thirdPartyKey = 'removeThirdPartyCookies'
 export const thirdPartyGuidance = 'Open the website you want to clean in a tab and let it finish loading. Keep that tab open while cleaning so Cookie Cleaner can find cookies from other companies used on that page, such as advertising companies. Cookies from companies that are not found may remain. Removing a company\'s cookies can also affect other websites, including signing you out.'
@@ -62,20 +61,6 @@ export function website(url: string): { domain: string; origin: string } | null 
 export function matchesSite(url: string, domain: string | null): boolean {
   const site = website(url)
   return site !== null && (domain === null || site.domain === domain)
-}
-
-export function rememberSite(sites: Site[], url: string, now: number): Site[] {
-  const site = website(url)
-  if (!site) return sites
-  const previous = sites.find((item) => item.domain === site.domain)
-  return [
-    {
-      domain: site.domain,
-      origins: [...new Set([site.origin, ...(previous?.origins ?? [])])],
-      visitedAt: now,
-    },
-    ...sites.filter((item) => item.domain !== site.domain),
-  ].slice(0, 10)
 }
 
 export function thirdPartyDomains(urls: Iterable<string>, domain: string): string[] {

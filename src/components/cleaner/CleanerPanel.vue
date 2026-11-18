@@ -83,9 +83,9 @@ async function openWebsite(site: Site) {
       <summary>About tracking ads &amp; cleanup limits</summary>
       <p>{{ thirdPartyGuidance }}</p>
       <p>This cannot delete information advertising companies keep on their own computers, so it cannot guarantee that product ads will stop. Open websites can save new cookies again, even just after cleaning.</p>
-      <p>Site cookies include subdomains. Local storage can only be targeted at known origins: the base site, origins recorded in your recent list, and matching loaded frames. Unobserved subdomains or ports may retain data.</p>
+      <p>Site cookies include subdomains. Local storage can only be targeted at known origins: the base site, origins from your recent history, and matching loaded frames. Unobserved subdomains or ports may retain data.</p>
       <p>Session storage has no item timestamps. Only matching loaded HTTP(S) frames can be reached; unloaded pages, closed-tab restore data, and inaccessible frames may retain it. Sites can immediately recreate data while open. No tabs are reloaded automatically.</p>
-      <p>Browsing history, passwords, cache, IndexedDB, and service workers are not removed. Recent sites are stored locally from installation onward, never uploaded.</p>
+      <p>Browsing history, passwords, cache, IndexedDB, and service workers are not removed. Recent sites are read from Chrome's browsing history and never uploaded.</p>
     </details>
     <footer class="footer"><i class="bi bi-shield-check" aria-hidden="true" /> Local only. Nothing leaves your browser.</footer>
     <ConfirmDialog :request="review" @confirm="confirm" @cancel="review = null" />

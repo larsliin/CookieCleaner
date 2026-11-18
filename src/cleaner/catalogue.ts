@@ -1,4 +1,4 @@
-import { errorMessage, recentSitesKey, website, type Site } from './model.ts'
+import { errorMessage, website } from './model.ts'
 
 export interface DomainEntry {
   domain: string
@@ -91,16 +91,6 @@ export async function loadCatalogue(): Promise<Catalogue> {
         for (const tab of await chrome.tabs.query({})) if (tab.url) add(tab.url)
       } catch (error) {
         warnings.push(`Open tabs unavailable: ${errorMessage(error)}`)
-      }
-    })(),
-    (async () => {
-      try {
-        const stored = await chrome.storage.local.get(recentSitesKey)
-        for (const site of (stored[recentSitesKey] ?? []) as Site[]) {
-          for (const origin of site.origins) add(origin, site.visitedAt)
-        }
-      } catch (error) {
-        warnings.push(`Recent sites unavailable: ${errorMessage(error)}`)
       }
     })(),
   ])

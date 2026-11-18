@@ -311,8 +311,6 @@ try {
   const rows = popup.locator('section[aria-labelledby="recent-title"] > ul > li')
   assert.equal(await rows.count(), 10)
   assert.match(await rows.first().textContent(), /site11\.test/)
-  const recent = await worker.evaluate(async () => (await chrome.storage.local.get('recentSites')).recentSites)
-  assert.equal(new Set(recent.map((site) => site.domain)).size, 10)
   const openedWebsitePromise = context.waitForEvent('page')
   await popup.getByRole('button', { name: 'Open site5.test', exact: true }).click()
   const openedWebsite = await openedWebsitePromise
@@ -360,7 +358,7 @@ try {
   assert.equal(await siteHero().isDisabled(), true)
   assert.equal(await popup.getByRole('button', { name: 'Clean site5.test', exact: true }).isEnabled(), true)
   console.log('PASS unsupported current page still permits recent sites and all websites')
-  await worker.evaluate(() => chrome.storage.local.remove('recentSites'))
+  await worker.evaluate(() => chrome.history.deleteAll())
   await popup.reload()
   await popup.getByText('Recent sites appear here', { exact: false }).waitFor()
   assert.equal(await allHero().isEnabled(), true)

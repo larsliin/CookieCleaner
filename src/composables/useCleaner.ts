@@ -1,8 +1,9 @@
 import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 import {
-  errorMessage, jobKey, recentSitesKey, thirdPartyKey, website,
+  errorMessage, jobKey, thirdPartyKey, website,
   type CleanupJob, type CleanupRequest, type Period, type Reply, type Site,
 } from '../cleaner/model'
+import { loadRecentSites } from '../cleaner/recent'
 
 export function useCleaner() {
   const sites = shallowRef<Site[]>([])
@@ -23,9 +24,6 @@ export function useCleaner() {
       jobRevision++
       job.value = (changes[jobKey].newValue ?? null) as CleanupJob | null
     }
-    if (area === 'local' && changes[recentSitesKey]) {
-      sites.value = (changes[recentSitesKey].newValue ?? []) as Site[]
-    }
     if (area === 'local' && changes[thirdPartyKey]) {
       thirdParty.value = changes[thirdPartyKey].newValue === true
     }
@@ -39,13 +37,14 @@ export function useCleaner() {
       if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
         throw new Error('Browser preview only. Load the built extension in Chrome to enable cleanup.')
       }
-      const [stored, tabs, reply] = await Promise.all([
-        chrome.storage.local.get([recentSitesKey, thirdPartyKey]),
+      const [stored, tabs, reply, recent] = await Promise.all([
+        chrome.storage.local.get(thirdPartyKey),
         chrome.tabs.query({ active: true, currentWindow: true }),
         chrome.runtime.sendMessage<unknown, Reply<CleanupJob | null>>({ type: 'status' }),
+        loadRecentSites().catch(() => []),
       ])
       if (!reply.ok) throw new Error(reply.error)
-      sites.value = (stored[recentSitesKey] ?? []) as Site[]
+      sites.value = recent
       thirdParty.value = stored[thirdPartyKey] === true
       currentDomain.value = website(tabs[0]?.url ?? '')?.domain ?? null
       if (jobRevision === revision) {

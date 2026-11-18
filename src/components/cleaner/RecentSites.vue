@@ -67,7 +67,7 @@ function cookieCount(domain: string): string {
         </div>
       </BaseListItem>
     </ul>
-    <p v-else class="hint">Recent sites appear here as you browse after installing the extension.</p>
+    <p v-else class="hint">Recent sites appear here once Chrome history has visits.</p>
     <div class="more">
       <BaseButton variant="secondary" size="small" @click="emit('seeAll')">See all</BaseButton>
     </div>

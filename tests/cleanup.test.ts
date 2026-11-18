@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { clean } from '../src/cleaner/cleanup.ts'
-import { isCleanupRequest, matchesSite, rememberSite, since, thirdPartyDomains, website } from '../src/cleaner/model.ts'
+import { isCleanupRequest, matchesSite, since, thirdPartyDomains, website } from '../src/cleaner/model.ts'
+import { loadRecentSites } from '../src/cleaner/recent.ts'
 
 test('site boundaries respect public suffixes, private tenants, and unsupported pages', () => {
   assert.equal(website('https://shop.example.co.uk/products')?.domain, 'example.co.uk')
@@ -30,18 +31,21 @@ test('third-party domains exclude the site itself, its subdomains, and non-web U
   ], 'example.com'), ['partner.co.uk', 'tracker.net'])
 })
 
-test('recent sites deduplicate, move to front, remember origins, and retain exactly ten', () => {
-  let sites = rememberSite([], 'https://shop.example.com/a', 1)
-  sites = rememberSite(sites, 'http://www.example.com/b', 2)
-  assert.equal(sites.length, 1)
-  assert.deepEqual(sites[0]?.origins, ['http://www.example.com', 'https://shop.example.com'])
-  for (let index = 0; index < 11; index++) {
-    sites = rememberSite(sites, `https://site${index}.com`, index + 3)
-  }
+test('recent sites come from history: newest first, deduplicated by domain, origins merged, ten at most', async () => {
+  const items = [
+    { url: 'https://shop.example.com/a', lastVisitTime: 1 },
+    { url: 'http://www.example.com/b', lastVisitTime: 2 },
+    { url: 'chrome://newtab', lastVisitTime: 99 },
+    ...Array.from({ length: 11 }, (_, index) => ({ url: `https://site${index}.com`, lastVisitTime: index + 3 })),
+  ]
+  Object.assign(globalThis, { chrome: { history: { search: async () => items } } })
+  const sites = await loadRecentSites()
   assert.equal(sites.length, 10)
   assert.equal(sites[0]?.domain, 'site10.com')
-  assert.equal(sites.at(-1)?.domain, 'site1.com')
-  assert.equal(rememberSite(sites, 'chrome://newtab', 20), sites)
+  assert.equal(sites.some((site) => site.domain === 'example.com'), false)
+  items.push({ url: 'https://other.com', lastVisitTime: 100 }, { url: 'https://other.com:8080', lastVisitTime: 101 })
+  const merged = (await loadRecentSites())[0]
+  assert.deepEqual(merged?.origins, ['https://other.com:8080', 'https://other.com'])
 })
 
 test('time ranges use exact millisecond thresholds', () => {

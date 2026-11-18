@@ -11,7 +11,7 @@ as the workspace's ColorPicker project.
   remove cookies and web storage across the browser, including third-party cookies.
 - **Individual websites**: a compact **Clean this site** action and Recent sites
   always remove all-time cookies, local storage, and reachable session storage.
-- A **Recent sites** list of your last 10 distinct sites, each with its own
+- A **Recent sites** list of your last 10 distinct sites from Chrome history, each with its own
   open-in-new-tab button, clean button and cookie count that updates as cookies change, including after
   cleanup. Counts include subdomains but exclude third-party cookies and web
   storage; zero cookies does not mean all site data is gone. Failed counts are
@@ -61,7 +61,7 @@ Time ranges use Chrome's cookie modification-time filter.
 
 **Local storage:** Chrome can target specific origins, not wildcard subdomains.
 Site cleanup includes HTTP and HTTPS base-site origins, origins recorded for that
-site in the recent list, and matching currently loaded frame origins (including
+site in recent history, and matching currently loaded frame origins (including
 their ports). Selected-site batches also include origins discovered in the
 all-sites catalogue. Unobserved subdomains and ports can retain local storage. This is
 always reported as limited, not a complete site-wide wipe.
@@ -111,11 +111,11 @@ third-party cookies.
 
 ### Recent sites and privacy
 
-Top-level HTTP(S) visits are tracked from installation onward, deduplicated by
-site, and limited to the last 10 sites. The list stores only site domains,
-visited origins, and last-visit times in `chrome.storage.local`, never URL paths
-or cookie/storage values. Revisited sites move to the front. Origins are retained
-while their site remains in the list. Cleanup does not erase the recent-site list.
+The Recent sites list is read live from Chrome's browsing history (the 10 most
+recently visited distinct sites, deduplicated by site). Nothing is stored by the
+extension, and no URL paths or cookie/storage values are kept. Origins come from
+history entries for that site. Clearing Chrome history empties the list, and
+cleanup never deletes history.
 
 ### All-sites tab
 
@@ -213,8 +213,8 @@ are unit-tested; fixture data is freshly created.
 | `history` | Read retained visits to populate domains and last-visit dates in the all-sites tab; never delete history |
 | `scripting` | Clear session storage and discover third-party domains in loaded website frames |
 | `tabs` | Discover open website tabs for cleanup and identify the current site |
-| `webNavigation` | Track recent top-level sites and enumerate loaded frames |
-| `storage` | Persist recent sites, the third-party switch, and background job results locally |
+| `webNavigation` | Enumerate loaded frames |
+| `storage` | Persist the third-party switch and background job results locally |
 | HTTP(S) host access | Required to clear session storage on selected or all websites |
 
 No `downloads`, clipboard, debugger, or network-request permissions are
@@ -226,7 +226,7 @@ all-websites session cleanup.
 - `src/cleaner/`: typed scope rules and browser cleanup engine
 - `src/cleaner/catalogue.ts`: history/cookie/tab inventory and deterministic sorting
 - `src/cleaner/batch.ts`: selected-domain batch cleanup with incremental progress
-- `src/background.ts`: recent-site tracking and persisted background jobs
+- `src/background.ts`: persisted background jobs
 - `src/composables/`: popup state, popup height sync, and system-theme integration
 - `src/components/cleaner/`: hero actions, options, recent-sites list, confirmation dialog, and results UI
 - `src/components/sites/`: responsive domain manager, toolbar, and selectable list
