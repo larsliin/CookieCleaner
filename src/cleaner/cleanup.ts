@@ -75,6 +75,7 @@ async function removeThirdPartyCookies(domain: string, period: Period, startedAt
   const failures: string[] = []
   let domains: string[] = []
   let partitioned = 0
+  let removedDiscovered = false
   try {
     const found = await findThirdPartyDomains(domain)
     domains = found.domains
@@ -85,6 +86,7 @@ async function removeThirdPartyCookies(domain: string, period: Period, startedAt
         originTypes: { unprotectedWeb: true, protectedWeb: true, extension: false },
         origins: domains.flatMap((item) => [`https://${item}`, `http://${item}`]) as [string, ...string[]],
       })
+      removedDiscovered = true
     }
   } catch (error) {
     failures.push(errorMessage(error))
@@ -97,16 +99,19 @@ async function removeThirdPartyCookies(domain: string, period: Period, startedAt
       failures.push(`Partitioned cookies: ${errorMessage(error)}`)
     }
   }
-  const seen = domains.length > 0
-    ? `Removed cookies from ${domains.length} other website(s) used by this site's open tabs: ${domains.join(', ')}. Removing these cookies also affects other websites that use them.`
-    : 'No other websites were found in this site\'s open tabs. If the site is closed, open it, let it finish loading, and try again.'
-  const partition = period === 'all'
-    ? ` Removed ${partitioned} partitioned cookie(s) stored under this site.`
-    : ' Partitioned cookies are only removed for "All time".'
+  const summary = removedDiscovered || partitioned > 0
+    ? 'Third-party cookies removed.'
+    : failures.length > 0
+      ? 'Third-party cookie cleanup could not be completed.'
+      : 'No third-party cookies were found to remove.'
+  const discovery = domains.length === 0
+    ? ' Open the site and let it finish loading to find cookies from other companies.'
+    : ''
+  const partition = period === 'all' ? '' : ' Partitioned cookies are only removed for "All time".'
   return {
     name: 'Third-party cookies',
     status: failures.length > 0 ? 'failed' : 'limited',
-    detail: `${seen}${partition} Cookies from other companies that were not found on an open page may remain.${failures.length ? ` ${failures.join(' ')}` : ''}`,
+    detail: `${summary}${discovery}${partition} Cookies from other companies that were not found on an open page may remain.${failures.length ? ` ${failures.join(' ')}` : ''}`,
   }
 }
 

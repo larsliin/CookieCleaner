@@ -162,6 +162,51 @@ test('third-party cleanup removes discovered tracker cookies and cookies partiti
   }])
   const step = result.steps.find((item) => item.name === 'Third-party cookies')
   assert.equal(step?.status, 'limited')
-  assert.match(step!.detail, /2 other website\(s\).*tracker\.net, vendor\.test/)
-  assert.match(step!.detail, /1 partitioned cookie/)
+  assert.match(step!.detail, /^Third-party cookies removed\./)
+  assert.doesNotMatch(step!.detail, /tracker\.net|vendor\.test/)
+  assert.match(step!.detail, /not found on an open page may remain/)
 })
+
+for (const outcome of ['none found', 'removal failed', 'partitioned only', 'partial failure'] as const) {
+  test(`third-party result stays accurate when ${outcome}`, async () => {
+    const discovered = outcome === 'removal failed' || outcome === 'partial failure'
+    Object.assign(globalThis, {
+      chrome: {
+        tabs: { query: async () => [{ id: 1, url: 'https://example.com' }] },
+        webNavigation: { getAllFrames: async () => [] },
+        browsingData: {
+          removeCookies: async (options: { origins: string[] }) => {
+            if (discovered && options.origins.includes('https://tracker.test')) {
+              throw new Error('Third-party removal denied')
+            }
+          },
+          removeLocalStorage: async () => {},
+        },
+        scripting: {
+          executeScript: async () => [{ result: discovered ? ['https://tracker.test/pixel'] : [] }],
+        },
+        cookies: {
+          getAll: async () => outcome === 'partitioned only' || outcome === 'partial failure'
+            ? [{ domain: 'tracker.test', name: 'p', path: '/', secure: true, storeId: '0', partitionKey: { topLevelSite: 'https://example.com' } }]
+            : [],
+          remove: async () => ({}),
+        },
+      },
+    })
+    const result = await clean({ domain: 'example.com', period: 'all', thirdParty: true }, [], 100, async () => {})
+    const step = result.steps.find((item) => item.name === 'Third-party cookies')!
+    assert.equal(step.status, discovered ? 'failed' : 'limited')
+    assert.doesNotMatch(step.detail, /tracker\.test/)
+    assert.match(step.detail, /not found on an open page may remain/)
+    if (outcome === 'none found') {
+      assert.match(step.detail, /^No third-party cookies were found to remove\./)
+      assert.match(step.detail, /Open the site/)
+    } else if (outcome === 'removal failed') {
+      assert.match(step.detail, /^Third-party cookie cleanup could not be completed\./)
+      assert.doesNotMatch(step.detail, /cookies removed/i)
+    } else {
+      assert.match(step.detail, /^Third-party cookies removed\./)
+    }
+    if (discovered) assert.match(step.detail, /Third-party removal denied/)
+  })
+}

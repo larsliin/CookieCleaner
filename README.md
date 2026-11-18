@@ -35,7 +35,10 @@ as the workspace's ColorPicker project.
 - A centered confirmation dialog shows the scope before anything is deleted. No
   automatic reloads.
 - Cleanup runs in the background. Results, including partial failures and
-  limitations, appear when cleanup finishes with the popup open. Completed
+  limitations, appear when cleanup finishes with the popup open. Successful
+  cookie removal gets a brief confirmation, including third-party removal when
+  completed, without listing third-party domains. Errors and browser limitations
+  remain visible. Completed
   results are not shown when reopening the popup, even if cleanup finished
   while it was closed. Running jobs still show progress when reopening.
 - 420px wide popup with a fixed height (480–600px) that follows its content.

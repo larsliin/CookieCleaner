@@ -9,8 +9,17 @@ const emit = defineEmits<{ dismiss: [] }>()
 const title = computed(() => {
   if (props.job.status === 'running') return 'Cleaning in the background...'
   if (props.job.steps.some((step) => step.status === 'failed')) return 'Cleanup finished with errors'
+  const cookies = props.job.steps.filter((step) => step.name === 'Cookies' || step.name.endsWith(': Cookies'))
+  if (cookies.length > 0 && cookies.every((step) => step.status === 'done')) {
+    return props.job.request.domain === null && !props.job.request.targets
+      ? 'Cookies removed, including third-party cookies'
+      : 'Cookies removed'
+  }
   return 'Cleanup finished with limitations'
 })
+const visibleSteps = computed(() => props.job.status === 'running'
+  ? props.job.steps
+  : props.job.steps.filter((step) => step.status !== 'done'))
 const icons: Record<CleanupStep['status'], string> = {
   done: 'bi-check-circle', limited: 'bi-info-circle', failed: 'bi-exclamation-circle',
 }
@@ -35,8 +44,8 @@ const labels: Record<CleanupStep['status'], string> = { done: 'completed', limit
       </BaseIconButton>
     </div>
     <BaseLoadingBar v-if="job.status === 'running'" />
-    <ul class="steps">
-      <li v-for="step in job.steps" :key="step.name" class="step">
+    <ul v-if="visibleSteps.length" class="steps">
+      <li v-for="step in visibleSteps" :key="step.name" class="step">
         <i :class="['bi', icons[step.status], step.status]" aria-hidden="true" />
         <div>
           <strong>{{ step.name }}: {{ labels[step.status] }}</strong>
