@@ -30,7 +30,7 @@ function onBackdrop(event: MouseEvent) {
 <template>
   <dialog
     ref="dialog"
-    class="confirm"
+    class="confirm cleanup-dialog"
     aria-labelledby="confirm-title"
     aria-describedby="confirm-scope"
     @cancel.prevent="emit('cancel')"
@@ -60,24 +60,6 @@ function onBackdrop(event: MouseEvent) {
 </template>
 
 <style scoped>
-.confirm {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  width: calc(100% - 32px);
-  max-width: 388px;
-  max-height: calc(100% - 32px);
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-  color: var(--color-text);
-  background: var(--color-panel-raised);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  box-shadow: 0 18px 48px rgb(0 0 0 / 35%);
-  transform: translate(-50%, -50%);
-}
-.confirm::backdrop { background: rgb(0 0 0 / 55%); }
 .body { display: grid; gap: 12px; padding: 18px; }
 .title { margin: 0; font-size: 16px; font-weight: 650; }
 .target { display: grid; gap: 3px; }

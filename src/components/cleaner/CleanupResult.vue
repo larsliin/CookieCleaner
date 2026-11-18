@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef, watchPostEffect } from 'vue'
 import { BaseIconButton, BaseLoadingBar } from 'chrome-extension-component-library'
 import { cleanupScope, periodLabel, type CleanupJob, type CleanupStep } from '../../cleaner/model'
 
 const props = defineProps<{ job: CleanupJob }>()
 const emit = defineEmits<{ dismiss: [] }>()
+const result = useTemplateRef<HTMLElement>('result')
+
+watchPostEffect(() => {
+  if (result.value instanceof HTMLDialogElement && !result.value.open) result.value.showModal()
+})
+
+function onBackdrop(event: MouseEvent) {
+  if (result.value instanceof HTMLDialogElement && event.target === result.value) emit('dismiss')
+}
 
 const title = computed(() => {
   if (props.job.status === 'running') return 'Cleaning in the background...'
@@ -27,7 +36,16 @@ const labels: Record<CleanupStep['status'], string> = { done: 'completed', limit
 </script>
 
 <template>
-  <section class="result" aria-labelledby="result-title" aria-live="polite">
+  <component
+    :is="job.status === 'complete' ? 'dialog' : 'section'"
+    ref="result"
+    class="result"
+    :class="{ 'cleanup-dialog': job.status === 'complete' }"
+    aria-labelledby="result-title"
+    aria-live="polite"
+    @cancel.prevent="emit('dismiss')"
+    @click="onBackdrop"
+  >
     <div class="heading">
       <div>
         <h2 id="result-title" class="title">{{ title }}</h2>
@@ -38,6 +56,7 @@ const labels: Record<CleanupStep['status'], string> = { done: 'completed', limit
         v-if="job.status === 'complete'"
         variant="tool"
         label="Dismiss result"
+        autofocus
         @click="emit('dismiss')"
       >
         <i class="bi bi-x-lg" aria-hidden="true" />
@@ -54,18 +73,22 @@ const labels: Record<CleanupStep['status'], string> = { done: 'completed', limit
       </li>
     </ul>
     <p v-if="job.status === 'running'" class="caption">Cleanup continues if you close the popup. Completed results are not shown when you reopen it.</p>
-  </section>
+  </component>
 </template>
 
 <style scoped>
 .result {
-  display: grid;
   gap: 12px;
+}
+.result:not(dialog), .result[open] { display: grid; }
+.result:not(dialog) {
   padding: 14px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: var(--color-editor-bg);
 }
+.result.cleanup-dialog { padding: 18px; }
+.cleanup-dialog .title { margin: 0 0 3px; font-size: 16px; }
 .heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .title { margin: 0 0 3px; font-size: 14px; font-weight: 650; }
 .caption { margin: 0; color: var(--color-text-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }

@@ -150,9 +150,28 @@ try {
   }
   const siteHero = () => popup.getByRole('button', { name: /^Clean this site/ })
   const allHero = () => popup.getByRole('button', { name: /^Clear cookies & site data/ })
-  const dialog = () => popup.getByRole('dialog')
+  const dialog = () => popup.locator('dialog.confirm')
   const thirdPartySwitch = () => popup.getByLabel('Also remove third-party cookies')
   const reminder = (page) => page.getByRole('status').filter({ hasText: 'Open the website you want to clean' })
+
+  async function assertResultDialog(page) {
+    const result = page.locator('dialog.result')
+    await result.waitFor()
+    const box = await result.boundingBox()
+    const viewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }))
+    assert.equal(await result.evaluate((element) => getComputedStyle(element).position), 'fixed')
+    assert.equal(await result.evaluate((element) => element.matches(':modal')), true)
+    assert.equal(await result.evaluate((element) => element.contains(document.activeElement)), true)
+    assert.ok(Math.abs(box.x + box.width / 2 - viewport.width / 2) <= 1, 'Result must be horizontally centered')
+    assert.ok(Math.abs(box.y + box.height / 2 - viewport.height / 2) <= 1, 'Result must be vertically centered')
+    assert.equal(box.width, Math.min(388, viewport.width - 32), 'Result must match confirmation width')
+    assert.ok(box.height <= viewport.height - 32, 'Long results must fit inside the viewport')
+  }
+
+  async function dismissResult(page) {
+    await page.getByRole('button', { name: 'Dismiss result', exact: true }).click()
+    await page.locator('.result').waitFor({ state: 'detached' })
+  }
 
   await seed(selected, 'selected')
   await seed(frame, 'frame')
@@ -207,6 +226,11 @@ try {
   assert.doesNotMatch(await popup.locator('.result').textContent(), /third-party cookies/i)
   await popup.getByText('Local storage: limited', { exact: true }).waitFor()
   await popup.getByText('Session storage: limited', { exact: true }).waitFor()
+  await assertResultDialog(popup)
+  await popup.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await assertResultDialog(popup)
+  await popup.keyboard.press('Escape')
+  await popup.locator('.result').waitFor({ state: 'detached' })
   await recentRow('cleaner.test').getByText('0 cookies', { exact: true }).waitFor()
   await recentRow('tracker.test').getByText('1 cookie', { exact: true }).waitFor()
   await selected.evaluate(() => { document.cookie = 'sentinel=recreated; path=/' })
@@ -245,6 +269,8 @@ try {
   assert.match(await popup.locator('.result').textContent(), /not found on an open page may remain/)
   assert.deepEqual(await data(tracker), { local: 'tracker', session: 'tracker', cookie: false })
   assert.deepEqual(await data(unrelated), { local: 'unrelated', session: 'unrelated', cookie: true })
+  await assertResultDialog(popup)
+  await dismissResult(popup)
   console.log('PASS persisted third-party switch removes cookies of trackers loaded by the site only')
 
   for (const period of ['hour', 'day', 'week', 'all']) {
@@ -257,6 +283,7 @@ try {
     assert.equal(await popup.locator('.result .done').count(), 0)
     assert.deepEqual(await data(selected), { local: null, session: null, cookie: false })
     assert.deepEqual(await data(unrelated), { local: null, session: null, cookie: false })
+    if (period !== 'all') await dismissResult(popup)
     console.log(`PASS all-sites cleanup: ${period}`)
   }
   for (const colorScheme of ['light', 'dark']) {
@@ -304,6 +331,7 @@ try {
   assert.deepEqual(recentJob.request, { domain: 'site5.test', period: 'all', thirdParty: true })
   await popup.locator('.result').getByText(/^No third-party cookies were found to remove\./).waitFor()
   assert.doesNotMatch(await popup.locator('.result').textContent(), /Third-party cookies removed\./)
+  await dismissResult(popup)
   await popup.getByText('Also remove third-party cookies', { exact: true }).click()
   const recentWithoutThirdParty = await confirmCleanup(() => popup.getByRole('button', { name: 'Clean site5.test', exact: true }).click())
   assert.deepEqual(recentWithoutThirdParty.request, { domain: 'site5.test', period: 'all', thirdParty: false })
@@ -358,11 +386,14 @@ try {
   await selected.bringToFront()
   await popup.goto(`chrome-extension://${extensionId}/index.html`)
   await popup.getByRole('heading', { name: 'Cleaning in the background...', exact: true }).waitFor()
+  assert.equal(await popup.locator('.result').evaluate((element) => element.tagName), 'SECTION')
+  assert.notEqual(await popup.locator('.result').evaluate((element) => getComputedStyle(element).position), 'fixed')
   assert.equal(await allHero().isDisabled(), true, 'A restored running job must block duplicate cleanup')
   await worker.evaluate((job) => chrome.storage.session.set({ cleanupJob: job }), failedJob)
   await popup.getByRole('heading', { name: 'Cleanup finished with errors', exact: true }).waitFor()
   await popup.getByText('Simulated cleanup failure', { exact: true }).waitFor()
   assert.equal(await popup.getByRole('heading', { name: /^Cookies removed/ }).count(), 0)
+  await assertResultDialog(popup)
   await popup.getByRole('button', { name: 'Dismiss result', exact: true }).click()
   await popup.locator('#result-title').waitFor({ state: 'detached' })
   await popup.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false')
@@ -384,7 +415,7 @@ try {
   await manager.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false')
   await manager.getByRole('heading', { name: 'All sites', exact: true }).waitFor()
   assert.ok(await manager.locator('main').evaluate((element) => element.getBoundingClientRect().width) > 420)
-  const managerDialog = () => manager.getByRole('dialog')
+  const managerDialog = () => manager.locator('dialog.confirm')
   const managerRows = () => manager.locator('.domain-list .rows > li')
   const managerSwitch = () => manager.getByLabel('Also remove third-party cookies')
   await manager.locator('#sort').selectOption('name')
@@ -441,6 +472,14 @@ try {
   assert.equal(await manager.locator('.result .done').count(), 0)
   await manager.getByText('aaa00.test: Local storage: limited', { exact: true }).waitFor()
   await manager.getByText('aaa30.test: Session storage: limited', { exact: true }).waitFor()
+  await assertResultDialog(manager)
+  await manager.setViewportSize({ width: 390, height: 320 })
+  await assertResultDialog(manager)
+  const longResult = manager.locator('dialog.result')
+  assert.equal(await longResult.evaluate((element) => element.scrollHeight > element.clientHeight), true)
+  await longResult.evaluate((element) => { element.scrollTop = element.scrollHeight })
+  assert.ok(await longResult.evaluate((element) => element.scrollTop) > 0, 'Long batch limitations must remain scrollable')
+  await manager.setViewportSize({ width: 1280, height: 900 })
   assert.deepEqual(batchJob.request.targets.map((target) => target.domain).sort(), ['aaa00.test', 'aaa30.test'])
   assert.equal(batchJob.completedSites, 2)
   assert.equal(batchJob.request.period, 'all')
@@ -451,9 +490,12 @@ try {
   assert.deepEqual(await data(batchPages[0]), { local: null, session: null, cookie: false })
   assert.deepEqual(await data(batchPages[1]), { local: null, session: null, cookie: false })
   assert.deepEqual(await data(batchPages[2]), { local: 'aaa50.test', session: 'aaa50.test', cookie: true })
+  await dismissResult(manager)
+  await popup.locator('.result').waitFor({ state: 'detached' })
   await managerRows().filter({ hasText: 'aaa00.test' }).getByText('No cookies', { exact: true }).waitFor()
   console.log('PASS selected batch confirmation, per-site results, cookie-free retained rows and unselected-site isolation')
 
+  const simultaneousAfter = await worker.evaluate(() => Date.now())
   const simultaneous = await popup.evaluate(async () => {
     const request = { domain: null, period: 'all', thirdParty: false, targets: [{ domain: 'aaa00.test', origins: [] }] }
     return Promise.all([
@@ -464,6 +506,12 @@ try {
   assert.equal(simultaneous.filter((reply) => reply.ok).length, 1)
   assert.match(simultaneous.find((reply) => !reply.ok).error, /already running/)
   console.log('PASS background rejects concurrent cleanup requests across clients')
+  await completedJob(simultaneousAfter)
+  await manager.locator('dialog.result').waitFor()
+  await assertResultDialog(manager)
+  // The fixed dialog's backdrop surrounds it even when the all-sites page is scrolled.
+  await manager.mouse.click(1, 1)
+  await manager.locator('.result').waitFor({ state: 'detached' })
 
   for (const colorScheme of ['light', 'dark']) {
     await manager.emulateMedia({ colorScheme })
@@ -483,6 +531,8 @@ try {
   assert.equal((await context.cookies(url('aaa50.test'))).some((cookie) => cookie.name === 'sentinel'), false)
   const remainingHistory = await worker.evaluate(() => chrome.history.search({ text: 'aaa00.test', startTime: 0 }))
   assert.ok(remainingHistory.length > 0)
+  await assertResultDialog(manager)
+  await dismissResult(manager)
   console.log('PASS responsive themes and Clear all site data ignores selection/toggle without deleting history')
   await manager.getByText('Also remove third-party cookies', { exact: true }).click()
   await manager.getByText('Also remove third-party cookies', { exact: true }).click()
