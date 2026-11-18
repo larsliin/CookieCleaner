@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted, shallowRef } from 'vue'
 import { BaseHeroButton, BaseSelect } from 'chrome-extension-component-library'
 import { periodLabel, periods, type Period } from '../../cleaner/model'
 
@@ -8,10 +9,18 @@ defineProps<{
 const period = defineModel<Period>('period', { required: true })
 const timeOptions = periods.map((item) => ({ ...item }))
 const emit = defineEmits<{ cleanAll: [] }>()
+
+const scrolled = shallowRef(false)
+function updateScrolled() { scrolled.value = window.scrollY > 0 }
+onMounted(() => {
+  updateScrolled()
+  window.addEventListener('scroll', updateScrolled, { passive: true })
+})
+onUnmounted(() => window.removeEventListener('scroll', updateScrolled))
 </script>
 
 <template>
-  <section class="quick-actions" aria-label="All websites">
+  <div class="hero-bar" :class="{ scrolled }">
     <BaseHeroButton class="hero" :disabled="disabled" @click="emit('cleanAll')">
       <span class="hero-icon" aria-hidden="true">
         <svg viewBox="20 20 88 88" fill="currentColor">
@@ -36,6 +45,8 @@ const emit = defineEmits<{ cleanAll: [] }>()
         <span class="hero-caption">All websites &middot; {{ periodLabel(period) }}</span>
       </span>
     </BaseHeroButton>
+  </div>
+  <section class="quick-actions" aria-label="All websites">
     <div class="field">
       <label class="field-label" for="period">Time range</label>
       <BaseSelect id="period" v-model="period" :options="timeOptions" :disabled="disabled" />
@@ -45,10 +56,24 @@ const emit = defineEmits<{ cleanAll: [] }>()
 </template>
 
 <style scoped>
-.quick-actions { display: grid; gap: 12px; }
+.quick-actions { display: grid; gap: 12px; margin-top: -20px; }
 .field { display: grid; gap: 6px; }
 .field-label { font-size: 12px; font-weight: 600; }
 .hint { margin: 0; color: var(--color-text-muted); font-size: 11px; line-height: 1.5; }
+.hero-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: -16px -16px 0;
+  padding: 16px;
+  background: var(--color-bg);
+  border-bottom: 1px solid transparent;
+}
+.hero-bar.scrolled {
+  border-bottom-color: var(--color-border);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 35%);
+}
+:global(:root[data-theme='light']) .hero-bar.scrolled { box-shadow: 0 3px 8px rgb(0 0 0 / 18%); }
 .hero { min-height: 76px; }
 .hero-icon {
   display: grid;
@@ -83,12 +108,13 @@ const emit = defineEmits<{ cleanAll: [] }>()
 }
 .hero:disabled .hero-icon svg { filter: none; }
 .hero-copy { display: grid; gap: 4px; min-width: 0; text-align: left; }
-.hero-title { font-size: 15px; font-weight: 650; letter-spacing: -0.2px; }
+.hero-title { font-size: 20px; font-weight: 650; letter-spacing: -0.2px; opacity: 0.85; }
 .hero-caption {
   overflow: hidden;
   color: var(--color-hero-caption);
   font-size: 11px;
   line-height: 1.4;
+  opacity: 0.85;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
