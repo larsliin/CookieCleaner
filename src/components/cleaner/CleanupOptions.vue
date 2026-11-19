@@ -16,10 +16,10 @@ function updateThirdParty(value: boolean) {
 <template>
   <div class="options">
       <BaseSwitch id="third-party" :model-value="thirdParty" :disabled="disabled" label="Also remove third-party cookies" @update:model-value="updateThirdParty" />
-      <p class="hint">Also clean cookies from other companies used by the website, such as advertisers. Keep the website open while cleaning. Saved for current, recent and selected-site cleanup.</p>
+      <p class="hint">Keep the site open to find third-party cookies. Some may remain. Saved for current, recent and selected sites.</p>
       <BaseAlert
         v-if="showReminder" variant="warning"
-        :message="compact ? 'Open the website you want to clean and keep its tab open so we can find advertisers\' cookies. Removing them may sign you out of other sites.' : thirdPartyGuidance"
+        :message="compact ? 'Removing these cookies may affect other sites and sign you out.' : thirdPartyGuidance"
         dismissible @dismiss="showReminder = false"
       />
   </div>

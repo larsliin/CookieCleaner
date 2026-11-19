@@ -62,7 +62,7 @@ async function openWebsite(site: Site) {
     <section class="individual-sites" aria-labelledby="individual-sites-title">
       <div class="section-heading">
         <h2 id="individual-sites-title" class="section-title">Individual websites</h2>
-        <p class="hint">Always all time &middot; Cookies, local storage and loaded session storage.</p>
+        <p class="hint">All time &middot; Cookies, local storage &amp; loaded session storage.</p>
       </div>
       <CleanupOptions v-model:third-party="thirdParty" :disabled="disabled" compact />
       <div class="current-site">
@@ -80,12 +80,12 @@ async function openWebsite(site: Site) {
       <RecentSites :sites="sites" :current-domain="currentDomain" :disabled="disabled" @clean="beginReview" @open="openWebsite" @see-all="openAllSites" />
     </section>
     <details class="details">
-      <summary>About tracking ads &amp; cleanup limits</summary>
+      <summary>Tracking ads &amp; cleanup limits</summary>
       <p>{{ thirdPartyGuidance }}</p>
-      <p>This cannot delete information advertising companies keep on their own computers, so it cannot guarantee that product ads will stop. Open websites can save new cookies again, even just after cleaning.</p>
-      <p>Site cookies include subdomains. Local storage can only be targeted at known origins: the base site, origins from your recent history, and matching loaded frames. Unobserved subdomains or ports may retain data.</p>
-      <p>Session storage has no item timestamps. Only matching loaded HTTP(S) frames can be reached; unloaded pages, closed-tab restore data, and inaccessible frames may retain it. Sites can immediately recreate data while open. No tabs are reloaded automatically.</p>
-      <p>Browsing history, passwords, cache, IndexedDB, and service workers are not removed. Recent sites are read from Chrome's browsing history and never uploaded.</p>
+      <p>Advertisers' server-side data cannot be deleted, so ads may continue. Open sites can recreate cookies and storage immediately.</p>
+      <p>Site cookies include subdomains. Local storage covers known origins only: the base site, recent-history origins and matching loaded frames. Unobserved subdomains or ports may retain data.</p>
+      <p>Session storage has no item timestamps; only matching loaded HTTP(S) frames are reachable. Unloaded pages, closed-tab restore data and inaccessible frames may retain it. No tabs are reloaded automatically.</p>
+      <p>History, passwords, cache, IndexedDB and service workers are not removed. Recent sites come from Chrome history and are never uploaded.</p>
     </details>
     <footer class="footer"><i class="bi bi-shield-check" aria-hidden="true" /> Local only. Nothing leaves your browser.</footer>
     <ConfirmDialog :request="review" @confirm="confirm" @cancel="review = null" />

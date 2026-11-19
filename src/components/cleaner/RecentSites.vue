@@ -32,9 +32,8 @@ function cookieCount(domain: string): string {
   <section class="recent" aria-labelledby="recent-title">
     <div class="heading">
       <h2 id="recent-title" class="title">Recent sites</h2>
-      <span class="hint">Last 10 &middot; stored on this device</span>
+      <span class="hint">Last 10</span>
     </div>
-    <p v-if="sites.length" class="hint">Site cookies, including subdomains. Counts exclude third-party cookies and web storage.</p>
     <BaseAlert :message="error" />
     <ul v-if="sites.length" class="list">
       <BaseListItem v-for="site in sites" :key="site.domain">
@@ -67,7 +66,7 @@ function cookieCount(domain: string): string {
         </div>
       </BaseListItem>
     </ul>
-    <p v-else class="hint">Recent sites appear here once Chrome history has visits.</p>
+    <p v-else class="hint">Recent sites appear here after browsing.</p>
     <div class="more">
       <BaseButton variant="secondary" size="small" @click="emit('seeAll')">See all</BaseButton>
     </div>

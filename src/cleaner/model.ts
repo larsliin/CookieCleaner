@@ -2,7 +2,7 @@ import { parse } from 'tldts'
 
 export const jobKey = 'cleanupJob'
 export const thirdPartyKey = 'removeThirdPartyCookies'
-export const thirdPartyGuidance = 'Open the website you want to clean in a tab and let it finish loading. Keep that tab open while cleaning so Cookie Cleaner can find cookies from other companies used on that page, such as advertising companies. Cookies from companies that are not found may remain. Removing a company\'s cookies can also affect other websites, including signing you out.'
+export const thirdPartyGuidance = 'Let the site finish loading and keep its tab open to find cookies from embedded companies, such as advertisers. Undetected cookies may remain. Removing these cookies may affect other sites and sign you out.'
 
 export const periods = [
   { value: 'all', label: 'All time' },

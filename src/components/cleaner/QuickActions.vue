@@ -48,10 +48,9 @@ onUnmounted(() => window.removeEventListener('scroll', updateScrolled))
   </div>
   <section class="quick-actions" aria-label="All websites">
     <div class="field">
-      <label class="field-label" for="period">Time range</label>
+      <label class="field-label" for="period">Time range (all websites only; loaded session storage clears in full)</label>
       <BaseSelect id="period" v-model="period" :options="timeOptions" :disabled="disabled" />
     </div>
-    <p class="hint">The time range applies only here. Loaded session storage is always cleared in full.</p>
   </section>
 </template>
 
