@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, useTemplateRef } from 'vue'
-import { BaseAlert, BaseButton, BaseLoadingBar } from 'chrome-extension-component-library'
+import { BaseAlert, BaseButton } from 'chrome-extension-component-library'
 import { errorMessage, thirdPartyGuidance, website, type Site } from '../../cleaner/model'
 import { useCleaner } from '../../composables/useCleaner'
 import { usePopupHeight } from '../../composables/usePopupHeight'
@@ -43,12 +43,6 @@ async function openWebsite(site: Site) {
 
 <template>
   <main ref="root" class="cleaner" aria-label="Cookie Cleaner" :aria-busy="loading || busy">
-    <header v-if="currentDomain" class="header">
-      <span class="site" :title="currentDomain">
-        <i class="bi bi-globe2" aria-hidden="true" /> {{ currentDomain }}
-      </span>
-    </header>
-    <BaseLoadingBar v-if="loading" />
     <BaseAlert :message="error" dismissible @dismiss="error = ''" />
     <BaseButton v-if="error && !available && !loading" variant="secondary" size="small" @click="load">
       Retry connection
@@ -56,6 +50,7 @@ async function openWebsite(site: Site) {
     <QuickActions
       v-model:period="period"
       :disabled="disabled"
+      :loading="loading"
       @clean-all="beginReview(null)"
     />
     <CleanupResult v-if="job" :job="job" @dismiss="dismissResult" />
@@ -67,8 +62,10 @@ async function openWebsite(site: Site) {
       <CleanupOptions v-model:third-party="thirdParty" :disabled="disabled" compact />
       <div class="current-site">
         <div class="current-copy">
-          <h3 class="current-title">This site</h3>
-          <p class="hint current-domain">{{ currentDomain ?? 'This tab is not a supported website' }}</p>
+          <p v-if="currentDomain" class="site" :title="currentDomain">
+            <i class="bi bi-globe2" aria-hidden="true" /> {{ currentDomain }}
+          </p>
+          <p v-else class="hint current-domain">This tab is not a supported website</p>
         </div>
         <BaseButton
           variant="secondary"
@@ -94,11 +91,19 @@ async function openWebsite(site: Site) {
 
 <style scoped>
 .cleaner { display: grid; gap: 16px; padding: 16px; }
-.header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.individual-sites { display: grid; gap: 14px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+.section-heading { display: grid; gap: 6px; }
+.section-title { margin: 0; font-size: 15px; font-weight: 650; }
+.hint { margin: 0; color: var(--color-text-muted); font-size: 11px; line-height: 1.5; }
+.current-site { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.current-copy { min-width: 0; }
+.current-domain { overflow-wrap: anywhere; }
 .site {
   overflow: hidden;
-  max-width: 60%;
-  padding: 3px 9px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 3px 7px;
   color: var(--color-text-muted);
   font-size: 11px;
   text-overflow: ellipsis;
@@ -106,14 +111,6 @@ async function openWebsite(site: Site) {
   border: 1px solid var(--color-border);
   border-radius: 999px;
 }
-.individual-sites { display: grid; gap: 14px; padding-top: 16px; border-top: 1px solid var(--color-border); }
-.section-heading { display: grid; gap: 6px; }
-.section-title { margin: 0; font-size: 15px; font-weight: 650; }
-.hint { margin: 0; color: var(--color-text-muted); font-size: 11px; line-height: 1.5; }
-.current-site { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.current-copy { min-width: 0; }
-.current-title { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
-.current-domain { overflow-wrap: anywhere; }
 .details { border-top: 1px solid var(--color-border); padding-top: 14px; font-size: 12px; color: var(--color-text-muted); line-height: 1.6; }
 .details summary { cursor: pointer; color: var(--color-text); }
 .details p { margin: 10px 0 0; }

@@ -173,6 +173,50 @@ try {
     await page.locator('.result').waitFor({ state: 'detached' })
   }
 
+  for (const targetUrl of [url('shop.cleaner.test'), url(`${'long'.repeat(15)}.test`), 'chrome://settings/']) {
+    const headerPage = await context.newPage()
+    await headerPage.setViewportSize({ width: 420, height: 600 })
+    await headerPage.addInitScript((targetUrl) => {
+      const query = chrome.tabs.query.bind(chrome.tabs)
+      chrome.tabs.query = async (options) => {
+        if (!options.active || !options.currentWindow) return query(options)
+        await new Promise((resolve) => {
+          window.addEventListener('release-header-load', resolve, { once: true })
+        })
+        return [{ url: targetUrl }]
+      }
+    }, targetUrl)
+    for (const colorScheme of ['light', 'dark']) {
+      await headerPage.emulateMedia({ colorScheme })
+      await headerPage.goto(`chrome-extension://${extensionId}/index.html`)
+      await headerPage.getByRole('progressbar').waitFor()
+      const loadingHero = await headerPage.locator('.hero-bar').boundingBox()
+      const loadingContent = await headerPage.locator('.quick-actions').boundingBox()
+      assert.equal(loadingHero.y, 0, 'Hero must start at the top without an empty header row')
+      assert.equal((await headerPage.getByRole('progressbar').boundingBox()).y, 0, 'Loader must overlay the top edge')
+      await headerPage.evaluate(() => window.dispatchEvent(new Event('release-header-load')))
+      await headerPage.waitForFunction(() => document.querySelector('main')?.getAttribute('aria-busy') === 'false')
+      const loadedHero = await headerPage.locator('.hero-bar').boundingBox()
+      assert.equal(loadedHero.y, loadingHero.y, `Hero must not jump after loading ${targetUrl} in ${colorScheme} mode`)
+      assert.equal(loadedHero.height, loadingHero.height, 'Site label must not resize the hero')
+      assert.equal((await headerPage.locator('.quick-actions').boundingBox()).y, loadingContent.y, 'Content below the hero must not jump')
+      assert.equal(await headerPage.locator('button.hero .site').count(), 0, 'Site tag must stay outside the global hero')
+      assert.equal(await headerPage.locator('.current-copy .site').count(), targetUrl.startsWith('http') ? 1 : 0)
+      if (targetUrl.startsWith('http')) {
+        const tagBox = await headerPage.locator('.current-copy .site').boundingBox()
+        const actionBox = await headerPage.getByRole('button', { name: 'Clean this site', exact: true }).boundingBox()
+        assert.ok(tagBox.x + tagBox.width <= actionBox.x, 'Site tag must sit beside its cleanup button')
+        assert.ok(Math.abs(tagBox.y + tagBox.height / 2 - actionBox.y - actionBox.height / 2) <= 1, 'Site tag and cleanup button must be vertically aligned')
+        assert.equal(await headerPage.locator('.current-copy .site .bi-globe2').count(), 1, 'Site tag must retain its globe icon')
+      }
+      assert.equal(await headerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Long site labels must not overflow')
+      assert.match(await headerPage.locator('button.hero').textContent(), /All websites/, 'Site label must not obscure the global cleanup scope')
+      assert.equal(await headerPage.getByRole('progressbar').count(), 0, 'Loading indicator must disappear when ready')
+    }
+    await headerPage.close()
+  }
+  console.log('PASS globe site tag sits beside its cleanup button; top-edge loader and hero remain stable in both themes')
+
   await seed(selected, 'selected')
   await seed(frame, 'frame')
   await seed(unrelated, 'unrelated')

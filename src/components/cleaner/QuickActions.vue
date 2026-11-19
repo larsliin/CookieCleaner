@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, shallowRef } from 'vue'
-import { BaseHeroButton, BaseSelect } from 'chrome-extension-component-library'
+import { BaseHeroButton, BaseLoadingBar, BaseSelect } from 'chrome-extension-component-library'
 import { periodLabel, periods, type Period } from '../../cleaner/model'
 
 defineProps<{
   disabled: boolean
+  loading: boolean
 }>()
 const period = defineModel<Period>('period', { required: true })
 const timeOptions = periods.map((item) => ({ ...item }))
@@ -21,6 +22,7 @@ onUnmounted(() => window.removeEventListener('scroll', updateScrolled))
 
 <template>
   <div class="hero-bar" :class="{ scrolled }">
+    <BaseLoadingBar v-if="loading" class="loading-bar" />
     <BaseHeroButton class="hero" :disabled="disabled" @click="emit('cleanAll')">
       <span class="hero-icon" aria-hidden="true">
         <svg viewBox="20 20 88 88" fill="currentColor">
@@ -74,6 +76,7 @@ onUnmounted(() => window.removeEventListener('scroll', updateScrolled))
 }
 :global(:root[data-theme='light']) .hero-bar.scrolled { box-shadow: 0 3px 8px rgb(0 0 0 / 18%); }
 .hero { min-height: 76px; }
+.loading-bar { position: absolute; top: 0; left: 0; width: 100%; z-index: 2; }
 .hero-icon {
   display: grid;
   flex: 0 0 44px;
