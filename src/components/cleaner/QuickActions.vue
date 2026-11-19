@@ -43,14 +43,14 @@ onUnmounted(() => window.removeEventListener('scroll', updateScrolled))
         </svg>
       </span>
       <span class="hero-copy">
-        <strong class="hero-title">Clear cookies &amp; site data</strong>
+        <strong class="hero-title">Clear cookies and website data</strong>
         <span class="hero-caption">All websites &middot; {{ periodLabel(period) }}</span>
       </span>
     </BaseHeroButton>
   </div>
   <section class="quick-actions" aria-label="All websites">
     <div class="field">
-      <label class="field-label" for="period">Time range (all websites only; loaded session storage clears in full)</label>
+      <label class="field-label" for="period">Time range</label>
       <BaseSelect id="period" v-model="period" :options="timeOptions" :disabled="disabled" />
     </div>
   </section>
