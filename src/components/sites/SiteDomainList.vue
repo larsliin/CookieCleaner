@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { BaseCheckbox } from 'chrome-extension-component-library'
-import { computed } from 'vue'
 import type { DomainEntry } from '../../cleaner/catalogue'
 
 const props = defineProps<{
@@ -11,7 +10,6 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ select: [domain: string, checked: boolean]; selectPage: [checked: boolean] }>()
 const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-const selectedOnPage = computed(() => props.sites.filter((site) => props.selected.has(site.domain)).length)
 </script>
 
 <template>
@@ -22,7 +20,6 @@ const selectedOnPage = computed(() => props.sites.filter((site) => props.selecte
           :model-value="pageSelected" :disabled="disabled || !sites.length"
           label="Select page" @update:model-value="emit('selectPage', $event)"
         />
-        <span class="muted">{{ selectedOnPage }} / {{ sites.length }} selected</span>
       </div>
       <span>Website / Last visit</span>
       <span>Cookies</span>
@@ -34,7 +31,7 @@ const selectedOnPage = computed(() => props.sites.filter((site) => props.selecte
           :label="`Select ${site.domain}`" @update:model-value="emit('select', site.domain, $event)"
         />
         <div class="domain">
-          <strong>{{ site.domain }}</strong>
+          <strong><a class="domain-link" :href="site.origins[0]" target="_blank" rel="noopener noreferrer">{{ site.domain }}</a></strong>
           <span class="muted">{{ site.visitedAt === null ? 'Visit date unknown' : date.format(site.visitedAt) }}</span>
         </div>
         <span class="cookie-count">{{ site.cookieCount === null ? 'Count unavailable' : site.cookieCount === 0 ? 'No cookies' : `${site.cookieCount} ${site.cookieCount === 1 ? 'cookie' : 'cookies'}` }}</span>
@@ -51,8 +48,10 @@ const selectedOnPage = computed(() => props.sites.filter((site) => props.selecte
 .rows { list-style: none; padding: 0; margin: 0; }
 .page-selection { display: grid; gap: 5px; }
 .row { border-top: 1px solid var(--color-border); font-size: 13px; }
-.row :deep(label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.page-selection :deep(label), .row :deep(label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .domain { display: grid; gap: 5px; overflow-wrap: anywhere; }
+.domain-link { color: inherit; text-decoration: underline; text-decoration-color: var(--color-text-muted); text-underline-offset: 2px; }
+.domain-link:hover { color: var(--color-accent); text-decoration-color: currentColor; }
 .muted, .cookie-count, .empty { color: var(--color-text-muted); font-size: 12px; }
 .empty { padding: 20px; }
 @media (max-width: 600px) {
