@@ -43,7 +43,7 @@ const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle
 
 <style scoped>
 .domain-list { border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; }
-.list-heading, .row { display: grid; grid-template-columns: 115px minmax(0, 1fr) 120px; align-items: center; gap: 12px; padding: 14px 18px; }
+.list-heading, .row { display: grid; grid-template-columns: 30px minmax(0, 1fr) 120px; align-items: center; gap: 12px; padding: 14px 18px; }
 .list-heading { background: var(--color-editor-bg); font-size: 12px; }
 .rows { list-style: none; padding: 0; margin: 0; }
 .page-selection { display: grid; gap: 5px; }
