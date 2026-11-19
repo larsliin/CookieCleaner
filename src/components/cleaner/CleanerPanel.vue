@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, useTemplateRef } from 'vue'
-import { BaseAlert, BaseButton } from 'chrome-extension-component-library'
+import { BaseAlert, BaseButton, BaseListItem } from 'chrome-extension-component-library'
 import { errorMessage, thirdPartyGuidance, website, type Site } from '../../cleaner/model'
 import { useCleaner } from '../../composables/useCleaner'
 import { usePopupHeight } from '../../composables/usePopupHeight'
@@ -60,20 +60,22 @@ async function openWebsite(site: Site) {
         <p class="hint">All time &middot; Cookies, local storage &amp; loaded session storage.</p>
       </div>
       <CleanupOptions v-model:third-party="thirdParty" :disabled="disabled" compact />
-      <div class="current-site">
-        <div class="current-copy">
-          <p v-if="currentDomain" class="site" :title="currentDomain">
-            <i class="bi bi-globe2" aria-hidden="true" /> {{ currentDomain }}
-          </p>
-          <p v-else class="hint current-domain">This tab is not a supported website</p>
-        </div>
-        <BaseButton
-          variant="secondary"
-          size="small"
-          :disabled="disabled || !currentDomain"
-          @click="currentDomain && beginReview(currentDomain)"
-        >Clean this site</BaseButton>
-      </div>
+      <ul class="current-sites">
+        <BaseListItem class="current-site">
+          <template #icon><i class="bi bi-globe2" aria-hidden="true" /></template>
+          <div class="current-copy">
+            <p v-if="currentDomain" class="site" :title="currentDomain">{{ currentDomain }}</p>
+            <p v-else class="hint current-domain">This tab is not a supported website</p>
+          </div>
+          <BaseButton
+            class="current-action"
+            variant="secondary"
+            size="small"
+            :disabled="disabled || !currentDomain"
+            @click="currentDomain && beginReview(currentDomain)"
+          >Clean this site</BaseButton>
+        </BaseListItem>
+      </ul>
       <RecentSites :sites="sites" :current-domain="currentDomain" :disabled="disabled" @clean="beginReview" @open="openWebsite" @see-all="openAllSites" />
     </section>
     <details class="details">
@@ -95,21 +97,19 @@ async function openWebsite(site: Site) {
 .section-heading { display: grid; gap: 6px; }
 .section-title { margin: 0; font-size: 15px; font-weight: 650; }
 .hint { margin: 0; color: var(--color-text-muted); font-size: 11px; line-height: 1.5; }
-.current-site { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
-.current-copy { min-width: 0; }
+.current-sites { min-width: 0; margin: 0; padding: 0; list-style: none; }
+.current-site { min-width: 0; }
+.current-copy { flex: 1 1 0; min-width: 0; }
+.current-action { flex: 0 0 auto; }
 .current-domain { overflow-wrap: anywhere; }
 .site {
   overflow: hidden;
-  width: fit-content;
-  max-width: 100%;
   margin: 0;
-  padding: 3px 7px;
-  color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
 }
 .details { border-top: 1px solid var(--color-border); padding-top: 14px; font-size: 12px; color: var(--color-text-muted); line-height: 1.6; }
 .details summary { cursor: pointer; color: var(--color-text); }

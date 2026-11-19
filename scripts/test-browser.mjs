@@ -173,6 +173,7 @@ try {
     await page.locator('.result').waitFor({ state: 'detached' })
   }
 
+  let currentActionWidth
   for (const targetUrl of [url('shop.cleaner.test'), url(`${'long'.repeat(15)}.test`), 'chrome://settings/']) {
     const headerPage = await context.newPage()
     await headerPage.setViewportSize({ width: 420, height: 600 })
@@ -202,12 +203,19 @@ try {
       assert.equal((await headerPage.locator('.quick-actions').boundingBox()).y, loadingContent.y, 'Content below the hero must not jump')
       assert.equal(await headerPage.locator('button.hero .site').count(), 0, 'Site tag must stay outside the global hero')
       assert.equal(await headerPage.locator('.current-copy .site').count(), targetUrl.startsWith('http') ? 1 : 0)
+      const currentAction = headerPage.getByRole('button', { name: 'Clean this site', exact: true })
+      const actionBox = await currentAction.boundingBox()
+      currentActionWidth ??= actionBox.width
+      assert.equal(actionBox.width, currentActionWidth, 'Current-site action must not shrink for long domains or unavailable targets')
+      assert.equal(await currentAction.isEnabled(), targetUrl.startsWith('http'), 'Current-site action must remain unavailable on unsupported pages')
+      assert.equal(await headerPage.locator('.current-sites > li.current-site .bi-globe2').count(), 1, 'Shared site row must retain its globe icon')
       if (targetUrl.startsWith('http')) {
         const tagBox = await headerPage.locator('.current-copy .site').boundingBox()
-        const actionBox = await headerPage.getByRole('button', { name: 'Clean this site', exact: true }).boundingBox()
-        assert.ok(tagBox.x + tagBox.width <= actionBox.x, 'Site tag must sit beside its cleanup button')
-        assert.ok(Math.abs(tagBox.y + tagBox.height / 2 - actionBox.y - actionBox.height / 2) <= 1, 'Site tag and cleanup button must be vertically aligned')
-        assert.equal(await headerPage.locator('.current-copy .site .bi-globe2').count(), 1, 'Site tag must retain its globe icon')
+        assert.ok(tagBox.x + tagBox.width <= actionBox.x, 'Domain must sit beside its cleanup button')
+        assert.ok(Math.abs(tagBox.y + tagBox.height / 2 - actionBox.y - actionBox.height / 2) <= 1, 'Domain and cleanup button must be vertically aligned')
+        if (new URL(targetUrl).hostname.length > 50) {
+          assert.equal(await headerPage.locator('.site').evaluate((element) => element.scrollWidth > element.clientWidth), true, 'Long domains must truncate within the row')
+        }
       }
       assert.equal(await headerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Long site labels must not overflow')
       assert.match(await headerPage.locator('button.hero').textContent(), /All websites/, 'Site label must not obscure the global cleanup scope')
@@ -215,7 +223,7 @@ try {
     }
     await headerPage.close()
   }
-  console.log('PASS globe site tag sits beside its cleanup button; top-edge loader and hero remain stable in both themes')
+  console.log('PASS shared current-site row keeps domain, globe and fixed-width action aligned without overflow in both themes')
 
   await seed(selected, 'selected')
   await seed(frame, 'frame')
